@@ -37,7 +37,7 @@ def populate_database(cursor):
     cursor.execute('INSERT INTO MY_LIBRARY.BOOK_SECTION VALUES (12345, 4), (11394, 5), (974, 6), (1874, 4), (6547, 6), (4431, 2);')
     cursor.execute('INSERT INTO MY_LIBRARY.LIBRARIAN VALUES (123456, 1), (123456, 2), (123456, 3), (189443, 4), (189443, 5), (189443, 6), (189443, 7);')
     cursor.execute('INSERT INTO MY_LIBRARY.TECHNICIAN VALUES (239902);')
-    cursor.execute('INSERT INTO MY_LIBRARY.RENT_BOOK VALUES (14387074, 12345, "2023-12-07");')
+    cursor.execute('INSERT INTO MY_LIBRARY.RENT_BOOK VALUES (14387074, 12345, "2023-12-07"), (14387074, 6547, "2023-11-12"), (21833904, 974, "2023-12-4");')
 
 
 def get_student_id(cursor) -> int:
@@ -60,9 +60,16 @@ def get_student_id(cursor) -> int:
             print("Please enter a valid student id.")
     return student_id
 
+
 def check_out_book(cursor):
     student_id = get_student_id(cursor)
-    cursor.execute('SELECT book_count FROM MY_LIBRARY.STUDENT WHERE Student_id = {}'.format(student_id))
+        
+    while True:
+        try:
+            book_name = input("Input the name of the book you would like to check out: ")
+            break
+        except ValueError:
+            print("Please enter a valid book title.")
             
     query = 'SELECT * FROM MY_LIBRARY.BOOK WHERE Title LIKE "%{}%";'.format(book_name)
     cursor.execute(query)
@@ -80,30 +87,58 @@ def check_out_book(cursor):
                         cursor.execute('INSERT INTO MY_LIBRARY.RENT_BOOK VALUES ({}, {}, "{}");'.format(student_id, book_id, due_date))
                         cursor.execute('UPDATE MY_LIBRARY.STUDENT SET book_count=book_count+1 WHERE Student_id = {};'.format(student_id))
                         cursor.execute('UPDATE MY_LIBRARY.BOOK SET is_taken=True WHERE Book_id = {};'.format(book_id))
-
+                        print("Book checked out!\n\n")
                         return
                     break
                 except ValueError:
                     print("Please enter a valid input (y/n).")
+    
 
 
 def return_book(cursor):
     student_id = get_student_id(cursor)
+
+    cursor.execute('SELECT Title FROM MY_LIBRARY.BOOK WHERE Book_id IN (SELECT Book_id FROM MY_LIBRARY.RENT_BOOK WHERE Renter_id = {});'.format(student_id))
+    results = list(cursor.fetchall())
+    if len(results) == 0:
+        print("You can't return books if you don't have any books!\n\n")
+        return
+
+    print("Books checked out:\n")
+    for title in results:
+        print(" - {}".format(title))
+    print("\n")
+        
+    while True:
+        try:
+            book_name = input("Input the name of the book you would like to return: ")
+            break
+        except ValueError:
+            print("Please enter a valid book title.")
             
     query = 'SELECT * FROM MY_LIBRARY.BOOK WHERE Title LIKE "%{}%";'.format(book_name)
     cursor.execute(query)
 
     results = list(cursor.fetchall())
     for (book_id, title, author, is_taken) in results:
-        cursor.execute('SELECT Due_date FROM MY_LIBRARY.RENT_BOOK WHERE Renter_id = {} AND Book_id = {};'.format(student_id, book_id))
-        result = list(cursor.fetchall())
-        delta = date.today() - result[0][0]
-        if delta.days > 14:
-            print("Book being returned is overdue, charging $10 to your account!")
-            cursor.execute('UPDATE MY_LIBRARY.STUDENT SET money_owed=money_owed+10 WHERE Student_id = {};'.format(student_id))
-            
-        cursor.execute('DELETE FROM MY_LIBRARY.RENT_BOOK WHERE Renter_id = {} AND Book_id = {};'.format(student_id, book_id))
-        cursor.execute('UPDATE MY_LIBRARY.BOOK SET is_taken=False WHERE Book_id = {};'.format(book_id))
+        while True:
+            try:
+                cursor.execute('SELECT Due_date FROM MY_LIBRARY.RENT_BOOK WHERE Renter_id = {} AND Book_id = {};'.format(student_id, book_id))
+                result = list(cursor.fetchall())
+                if len(result) == 0:
+                    raise ValueError
+                delta = date.today() - result[0][0]
+                if delta.days > 14:
+                    print("Book being returned is overdue, charging $10 to your account!")
+                    cursor.execute('UPDATE MY_LIBRARY.STUDENT SET money_owed=money_owed+10 WHERE Student_id = {};'.format(student_id))
+                    
+                cursor.execute('DELETE FROM MY_LIBRARY.RENT_BOOK WHERE Renter_id = {} AND Book_id = {};'.format(student_id, book_id))
+                cursor.execute('UPDATE MY_LIBRARY.BOOK SET is_taken=False WHERE Book_id = {};'.format(book_id))
+
+                print("Thank you for returning your book, have a nice day!\n\n")
+                break
+            except ValueError:
+                print("You can't return a book that you haven't checked out!\n\n")
 
 
 def pay_fees(cursor):
@@ -123,20 +158,22 @@ def pay_fees(cursor):
 
     cursor.execute('UPDATE MY_LIBRARY.STUDENT SET money_owed=money_owed-{} WHERE Student_id = {}'.format(amount_payed, student_id))
     cursor.execute('SELECT money_owed FROM MY_LIBRARY.STUDENT WHERE Student_id = {}'.format(student_id))
-    print(list(cursor.fetchall())[0][0])
+    print("Money still owed: {}\n\n".format(list(cursor.fetchall())[0][0]))
 
 
     
 def main():
-    print("Welcome to my library! I hope we can provide all the books you'd need!\n\n")
     try:
         cnx = connector.connect(**config.config)
         cursor = cnx.cursor()
+        drop_database(cursor)
+        create_database(cursor)
+        populate_database(cursor)
 
         while True:
             while True:
                 try:
-                    options = input("Would you like to:\n(1) Check out a book.\n(2) Return a book.\n(3) Pay overdue fees.\n(4) Exit.")
+                    options = int(input("Would you like to:\n(1) Check out a book.\n(2) Return a book.\n(3) Pay overdue fees.\n(4) Exit.\n\nEnter a number 1-4: "))
                     if options < 1 or options > 4:
                         raise ValueError
                     break
@@ -152,8 +189,7 @@ def main():
                 drop_database(cursor)
                 cursor.close()
                 cnx.close()
-                break
-                
+                break    
     except connector.Error as err:
         if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
             print("Something is wrong with your user name or password")
