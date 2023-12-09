@@ -46,7 +46,7 @@ def get_student_id(cursor) -> int:
             while True:
                 student_id = input("Input your student id number: ")
                 try:
-                    stu_id = int(student_id)
+                    s = int(student_id)
                     break
                 except ValueError:
                     print("Please enter a valid student id")
@@ -166,7 +166,7 @@ def main():
     try:
         cnx = connector.connect(**config.config)
         cursor = cnx.cursor()
-        drop_database(cursor)
+
         create_database(cursor)
         populate_database(cursor)
 
@@ -201,3 +201,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
