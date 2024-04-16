@@ -4,42 +4,6 @@ from datetime import datetime, date
 import server_config as config
 
 
-def drop_database(cursor):
-    cursor.execute('DROP TABLE MY_LIBRARY.RENT_BOOK')
-    cursor.execute('DROP TABLE MY_LIBRARY.TECHNICIAN')
-    cursor.execute('DROP TABLE MY_LIBRARY.LIBRARIAN')
-    cursor.execute('DROP TABLE MY_LIBRARY.BOOK_SECTION')
-    cursor.execute('DROP TABLE MY_LIBRARY.BOOK')
-    cursor.execute('DROP TABLE MY_LIBRARY.SECTION')
-    cursor.execute('DROP TABLE MY_LIBRARY.STUDENT')
-    cursor.execute('DROP TABLE MY_LIBRARY.EMPLOYEE')
-    cursor.execute('DROP SCHEMA MY_LIBRARY')
-
-
-def create_database(cursor):
-    cursor.execute('CREATE SCHEMA MY_LIBRARY;')
-    cursor.execute('USE	MY_LIBRARY;')
-    cursor.execute('CREATE TABLE MY_LIBRARY.EMPLOYEE (Emp_id INT, Fname VARCHAR(25), Lname VARCHAR(25), Address VARCHAR(40), PRIMARY KEY(Emp_id) );')
-    cursor.execute('CREATE TABLE MY_LIBRARY.STUDENT (Student_id INT, Fname VARCHAR(25) NOT NULL, Lname VARCHAR(25) NOT NULL, Address VARCHAR(40), book_count INT DEFAULT 0, Money_owed DECIMAL(6, 2) DEFAULT 0.00, PRIMARY KEY(Student_id));')
-    cursor.execute('CREATE TABLE MY_LIBRARY.SECTION (Section_number INT, Section_subject VARCHAR(25), PRIMARY KEY(Section_number));')
-    cursor.execute('CREATE TABLE MY_LIBRARY.BOOK (Book_id INT, Title VARCHAR(50) NOT NULL, Author VARCHAR(25) NOT NULL, Is_taken bool DEFAULT	FALSE, PRIMARY KEY(Book_id));')
-    cursor.execute('CREATE TABLE MY_LIBRARY.BOOK_SECTION (Book_id INT, Section_number INT, PRIMARY KEY(Book_id), FOREIGN KEY(Section_number) REFERENCES MY_LIBRARY.SECTION(Section_number));')
-    cursor.execute('CREATE TABLE MY_LIBRARY.LIBRARIAN (Emp_id INT, Section_number INT, PRIMARY KEY(Emp_id, Section_number), FOREIGN KEY(Emp_id) REFERENCES MY_LIBRARY.EMPLOYEE(Emp_id), FOREIGN KEY(Section_number) REFERENCES MY_LIBRARY.SECTION(Section_number));')
-    cursor.execute('CREATE TABLE MY_LIBRARY.TECHNICIAN (Emp_id INT, PRIMARY KEY(Emp_id), FOREIGN KEY(Emp_id) REFERENCES MY_LIBRARY.EMPLOYEE(Emp_id));')
-    cursor.execute('CREATE TABLE MY_LIBRARY.RENT_BOOK (Renter_id INT, Book_id INT NOT NULL, Due_date DATE NOT NULL, PRIMARY KEY(Renter_id, Book_id), FOREIGN KEY(Book_id) REFERENCES MY_LIBRARY.BOOK(Book_id));')
-
-
-def populate_database(cursor):
-    cursor.execute('INSERT INTO MY_LIBRARY.EMPLOYEE VALUES (123456, "Tim", "Lowe", "124 S Paradise Rd."), (239902, "Thomas", "Rost", "1530 W Dalcross Dr."), (189443, "Liz", "Rost", "1530 W Dalcross Dr.");')
-    cursor.execute('INSERT INTO MY_LIBRARY.STUDENT VALUES (14387074, "Andrew", "Stormer", "219 E El Cortez Dr.", 0, 15.00), (21833904, "Evan", "Harlan", "219 E El Cortez Dr.", 0, 0.00), (39019842, "Jake", "Burns", "219 E El Cortez Dr.", 0, 0.00), (13223481, "Sam", "Froelich", "219 E El Cortez Dr.", 0, 0.00), (12345678, "Alex", "Harang", "1284 W Royal St.", 0, 0.00);')
-    cursor.execute('INSERT INTO MY_LIBRARY.SECTION VALUES (1, "Non-fiction"), (2, "Biographies"), (3, "Science fiction"), (4, "Historical fiction"), (5, "Dystopia"), (6, "Novel"), (7, "Textbooks");')
-    cursor.execute('INSERT INTO MY_LIBRARY.BOOK VALUES (12345, "Moby Dick", "Herman Mellville", False), (11394, "1984", "George Orwell", False), (974, "The Great Gatsby", "F. Scott Fitzgerald", False), (1873, "To Kill a Mockingbird", "Harper Lee", False), (6547, "The Catcher in the Rye", "J. D. Salinger", False), (4431, "Steve Jobs", "Walter Isaacson", False);')
-    cursor.execute('INSERT INTO MY_LIBRARY.BOOK_SECTION VALUES (12345, 4), (11394, 5), (974, 6), (1874, 4), (6547, 6), (4431, 2);')
-    cursor.execute('INSERT INTO MY_LIBRARY.LIBRARIAN VALUES (123456, 1), (123456, 2), (123456, 3), (189443, 4), (189443, 5), (189443, 6), (189443, 7);')
-    cursor.execute('INSERT INTO MY_LIBRARY.TECHNICIAN VALUES (239902);')
-    cursor.execute('INSERT INTO MY_LIBRARY.RENT_BOOK VALUES (14387074, 12345, "2023-12-07"), (14387074, 6547, "2023-11-12"), (21833904, 974, "2023-12-4");')
-
-
 def get_student_id(cursor) -> int:
     while True:
         try:
@@ -63,6 +27,17 @@ def get_student_id(cursor) -> int:
 
 def check_out_book(cursor):
     student_id = get_student_id(cursor)
+    
+    query = 'SELECT Title FROM MY_LIBRARY.BOOK WHERE Is_taken = {}'.format(False)
+    cursor.execute(query)
+    results = list(cursor.fetchall())
+    
+    print('\n')
+    print("Here are the books available to rent:")
+    for result in results:
+        print(result)
+    print('\n')
+    
         
     while True:
         try:
@@ -167,8 +142,6 @@ def main():
         cnx = connector.connect(**config.config)
         cursor = cnx.cursor()
 
-        create_database(cursor)
-        populate_database(cursor)
 
         while True:
             while True:
@@ -186,7 +159,7 @@ def main():
             elif options == 3:
                 pay_fees(cursor)
             else:
-                drop_database(cursor)
+                #drop_database(cursor)
                 cursor.close()
                 cnx.close()
                 break    
@@ -201,4 +174,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
 
