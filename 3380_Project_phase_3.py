@@ -25,9 +25,7 @@ def get_student_id(cursor) -> int:
     return student_id
 
 
-def check_out_book(cursor):
-    student_id = get_student_id(cursor)
-    
+def check_out_book(cursor, student_id):    
     query = 'SELECT Title FROM MY_LIBRARY.BOOK WHERE Is_taken = {}'.format(False)
     cursor.execute(query)
     results = list(cursor.fetchall())
@@ -70,9 +68,7 @@ def check_out_book(cursor):
     
 
 
-def return_book(cursor):
-    student_id = get_student_id(cursor)
-
+def return_book(cursor, student_id):
     cursor.execute('SELECT Title FROM MY_LIBRARY.BOOK WHERE Book_id IN (SELECT Book_id FROM MY_LIBRARY.RENT_BOOK WHERE Renter_id = {});'.format(student_id))
     results = list(cursor.fetchall())
     if len(results) == 0:
@@ -104,8 +100,9 @@ def return_book(cursor):
                     raise ValueError
                 delta = date.today() - result[0][0]
                 if delta.days > 14:
-                    print("Book being returned is overdue, charging $10 to your account!")
-                    cursor.execute('UPDATE MY_LIBRARY.STUDENT SET money_owed=money_owed+10 WHERE Student_id = {};'.format(student_id))
+                    charge = delta.days - 14
+                    print("Book being returned is overdue, charging ${} to your account!").format(charge)
+                    cursor.execute('UPDATE MY_LIBRARY.STUDENT SET money_owed=money_owed+{} WHERE Student_id = {};'.format(charge, student_id))
                     
                 cursor.execute('DELETE FROM MY_LIBRARY.RENT_BOOK WHERE Renter_id = {} AND Book_id = {};'.format(student_id, book_id))
                 cursor.execute('UPDATE MY_LIBRARY.BOOK SET is_taken=False WHERE Book_id = {};'.format(book_id))
@@ -116,9 +113,7 @@ def return_book(cursor):
                 print("You can't return a book that you haven't checked out!\n\n")
 
 
-def pay_fees(cursor):
-    student_id = get_student_id(cursor)
-
+def pay_fees(cursor, student_id):
     cursor.execute('SELECT money_owed FROM MY_LIBRARY.STUDENT WHERE Student_id = {}'.format(student_id))
     amount_owed = (list(cursor.fetchall()))[0][0]
 
@@ -142,6 +137,7 @@ def main():
         cnx = connector.connect(**config.config)
         cursor = cnx.cursor()
 
+        student_id = get_student_id(cursor)
 
         while True:
             while True:
@@ -153,13 +149,13 @@ def main():
                 except ValueError:
                     print("Please enter a valid input 1-4.")
             if options == 1:
-                check_out_book(cursor)
+                check_out_book(cursor, student_id)
             elif options == 2:
-                return_book(cursor)
+                return_book(cursor, student_id)
             elif options == 3:
-                pay_fees(cursor)
+                pay_fees(cursor, student_id)
             else:
-                #drop_database(cursor)
+                cnx.commit()
                 cursor.close()
                 cnx.close()
                 break    
